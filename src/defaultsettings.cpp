@@ -280,7 +280,7 @@ void set_default_settings()
 	settings->setDefault("cinematic", "false");
 	settings->setDefault("camera_smoothing", "0.0");
 	settings->setDefault("cinematic_camera_smoothing", "0.7");
-	settings->setDefault("enable_clouds", "true");
+	settings->setDefault("enable_clouds", "false");
 	settings->setDefault("view_bobbing_amount", "1.0");
 	settings->setDefault("enable_3d_clouds", "true");
 	settings->setDefault("soft_clouds", "false");
@@ -306,7 +306,7 @@ void set_default_settings()
 	settings->setDefault("enable_local_map_saving", "false");
 	settings->setDefault("show_entity_selectionbox", "false");
 	settings->setDefault("ambient_occlusion_gamma", "1.8");
-	settings->setDefault("enable_particles", "true");
+	settings->setDefault("enable_particles", "false");
 	settings->setDefault("arm_inertia", "true");
 	settings->setDefault("show_nametag_backgrounds", "true");
 	settings->setDefault("show_block_bounds_radius_near", "4");
