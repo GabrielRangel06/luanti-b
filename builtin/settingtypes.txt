@@ -144,7 +144,7 @@ toggle_aux1_key (Toggle Aux1 key) bool false
 #    the place button.
 #
 #    Requires: keyboard_mouse
-repeat_place_time (Place repetition interval) float 0.25 0.16 2.0
+repeat_place_time (Place repetition interval) float 0.25 0.001 2.0
 
 #    The minimum time in seconds it takes between digging nodes when holding
 #    the dig button.
@@ -533,7 +533,7 @@ vsync (VSync) bool false
 fps_max_unfocused (FPS when unfocused) int 10 1 4294967295
 
 #    View distance in nodes.
-viewing_range (Viewing range) int 190 20 4000
+viewing_range (Viewing range) int 190 0 4000
 
 #    Undersampling is similar to using a lower screen resolution, but it applies
 #    to the game world only, keeping the GUI intact.
