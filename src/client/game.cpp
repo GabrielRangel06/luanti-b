@@ -188,7 +188,7 @@ public:
 typedef s32 SamplerLayer_t;
 
 
-class GameGlobalShaderUniformSetter : public IShaderUniformSetter
+class GameGlobalShaderConstantSetter : public IShaderConstantSetter
 {
 	Sky *m_sky;
 	Client *m_client;
@@ -204,6 +204,10 @@ class GameGlobalShaderUniformSetter : public IShaderUniformSetter
 	CachedVertexShaderSetting<float, 3> m_camera_offset_vertex{"cameraOffset"};
 	CachedPixelShaderSetting<float, 3> m_camera_position_pixel{ "cameraPosition" };
 	CachedVertexShaderSetting<float, 3> m_camera_position_vertex{ "cameraPosition" };
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture0{"texture0"};
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture1{"texture1"};
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture2{"texture2"};
+	CachedPixelShaderSetting<SamplerLayer_t> m_texture3{"texture3"};
 	CachedVertexShaderSetting<float, 2> m_texel_size0_vertex{"texelSize0"};
 	CachedPixelShaderSetting<float, 2> m_texel_size0_pixel{"texelSize0"};
 	v2f m_texel_size0;
@@ -243,12 +247,12 @@ public:
 
 	static void settingsCallback(const std::string &name, void *userdata)
 	{
-		reinterpret_cast<GameGlobalShaderUniformSetter*>(userdata)->onSettingsChange(name);
+		reinterpret_cast<GameGlobalShaderConstantSetter*>(userdata)->onSettingsChange(name);
 	}
 
 	void setSky(Sky *sky) { m_sky = sky; }
 
-	GameGlobalShaderUniformSetter(Sky *sky, Client *client) :
+	GameGlobalShaderConstantSetter(Sky *sky, Client *client) :
 		m_sky(sky),
 		m_client(client)
 	{
@@ -260,12 +264,12 @@ public:
 		m_volumetric_light_enabled = g_settings->getBool("enable_volumetric_lighting") && m_bloom_enabled;
 	}
 
-	~GameGlobalShaderUniformSetter()
+	~GameGlobalShaderConstantSetter()
 	{
 		g_settings->deregisterAllChangedCallbacks(this);
 	}
 
-	void onSetUniforms(video::IMaterialRendererServices *services) override
+	void onSetConstants(video::IMaterialRendererServices *services) override
 	{
 		u32 daynight_ratio = (float)m_client->getEnv().getDayNightRatio();
 		video::SColorf sunlight;
@@ -293,6 +297,16 @@ public:
 		v3f camera_position = m_client->getCamera()->getPosition();
 		m_camera_position_pixel.set(camera_position, services);
 		m_camera_position_pixel.set(camera_position, services);
+
+		SamplerLayer_t tex_id;
+		tex_id = 0;
+		m_texture0.set(&tex_id, services);
+		tex_id = 1;
+		m_texture1.set(&tex_id, services);
+		tex_id = 2;
+		m_texture2.set(&tex_id, services);
+		tex_id = 3;
+		m_texture3.set(&tex_id, services);
 
 		m_texel_size0_vertex.set(m_texel_size0, services);
 		m_texel_size0_pixel.set(m_texel_size0, services);
@@ -381,115 +395,31 @@ public:
 };
 
 
-class GameGlobalShaderUniformSetterFactory : public IShaderUniformSetterFactory
+class GameGlobalShaderConstantSetterFactory : public IShaderConstantSetterFactory
 {
 	Sky *m_sky = nullptr;
 	Client *m_client;
-	std::vector<GameGlobalShaderUniformSetter *> created_nosky;
+	std::vector<GameGlobalShaderConstantSetter *> created_nosky;
 public:
-	GameGlobalShaderUniformSetterFactory(Client *client) :
+	GameGlobalShaderConstantSetterFactory(Client *client) :
 		m_client(client)
 	{}
 
 	void setSky(Sky *sky)
 	{
 		m_sky = sky;
-		for (GameGlobalShaderUniformSetter *ggscs : created_nosky) {
+		for (GameGlobalShaderConstantSetter *ggscs : created_nosky) {
 			ggscs->setSky(m_sky);
 		}
 		created_nosky.clear();
 	}
 
-	virtual IShaderUniformSetter* create()
+	virtual IShaderConstantSetter* create()
 	{
-		auto *scs = new GameGlobalShaderUniformSetter(m_sky, m_client);
+		auto *scs = new GameGlobalShaderConstantSetter(m_sky, m_client);
 		if (!m_sky)
 			created_nosky.push_back(scs);
 		return scs;
-	}
-};
-
-class NodeShaderConstantSetter : public IShaderConstantSetter
-{
-public:
-	NodeShaderConstantSetter() = default;
-	~NodeShaderConstantSetter() = default;
-
-	void onGenerate(const std::string &name, ShaderConstants &constants) override
-	{
-		if (constants.find("DRAWTYPE") == constants.end())
-			return; // not a node shader
-		[[maybe_unused]] const auto drawtype =
-			static_cast<NodeDrawType>(std::get<int>(constants["DRAWTYPE"]));
-		[[maybe_unused]] const auto material_type =
-			static_cast<MaterialType>(std::get<int>(constants["MATERIAL_TYPE"]));
-
-#define PROVIDE(constant) constants[ #constant ] = (int)constant
-
-		PROVIDE(NDT_NORMAL);
-		PROVIDE(NDT_AIRLIKE);
-		PROVIDE(NDT_LIQUID);
-		PROVIDE(NDT_FLOWINGLIQUID);
-		PROVIDE(NDT_GLASSLIKE);
-		PROVIDE(NDT_ALLFACES);
-		PROVIDE(NDT_ALLFACES_OPTIONAL);
-		PROVIDE(NDT_TORCHLIKE);
-		PROVIDE(NDT_SIGNLIKE);
-		PROVIDE(NDT_PLANTLIKE);
-		PROVIDE(NDT_FENCELIKE);
-		PROVIDE(NDT_RAILLIKE);
-		PROVIDE(NDT_NODEBOX);
-		PROVIDE(NDT_GLASSLIKE_FRAMED);
-		PROVIDE(NDT_FIRELIKE);
-		PROVIDE(NDT_GLASSLIKE_FRAMED_OPTIONAL);
-		PROVIDE(NDT_PLANTLIKE_ROOTED);
-
-		PROVIDE(TILE_MATERIAL_BASIC);
-		PROVIDE(TILE_MATERIAL_ALPHA);
-		PROVIDE(TILE_MATERIAL_LIQUID_TRANSPARENT);
-		PROVIDE(TILE_MATERIAL_LIQUID_OPAQUE);
-		PROVIDE(TILE_MATERIAL_WAVING_LEAVES);
-		PROVIDE(TILE_MATERIAL_WAVING_PLANTS);
-		PROVIDE(TILE_MATERIAL_OPAQUE);
-		PROVIDE(TILE_MATERIAL_WAVING_LIQUID_BASIC);
-		PROVIDE(TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT);
-		PROVIDE(TILE_MATERIAL_WAVING_LIQUID_OPAQUE);
-		PROVIDE(TILE_MATERIAL_PLAIN);
-		PROVIDE(TILE_MATERIAL_PLAIN_ALPHA);
-
-#undef PROVIDE
-
-		bool enable_waving_water = g_settings->getBool("enable_waving_water");
-		constants["ENABLE_WAVING_WATER"] = enable_waving_water ? 1 : 0;
-		if (enable_waving_water) {
-			constants["WATER_WAVE_HEIGHT"] = g_settings->getFloat("water_wave_height");
-			constants["WATER_WAVE_LENGTH"] = g_settings->getFloat("water_wave_length");
-			constants["WATER_WAVE_SPEED"] = g_settings->getFloat("water_wave_speed");
-		}
-		switch (material_type) {
-			case TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT:
-			case TILE_MATERIAL_WAVING_LIQUID_OPAQUE:
-			case TILE_MATERIAL_WAVING_LIQUID_BASIC:
-				constants["MATERIAL_WAVING_LIQUID"] = 1;
-				break;
-			default:
-				constants["MATERIAL_WAVING_LIQUID"] = 0;
-				break;
-		}
-		switch (material_type) {
-			case TILE_MATERIAL_WAVING_LIQUID_TRANSPARENT:
-			case TILE_MATERIAL_WAVING_LIQUID_OPAQUE:
-			case TILE_MATERIAL_WAVING_LIQUID_BASIC:
-			case TILE_MATERIAL_LIQUID_TRANSPARENT:
-				constants["MATERIAL_WATER_REFLECTIONS"] = 1;
-				break;
-			default:
-				constants["MATERIAL_WATER_REFLECTIONS"] = 0;
-				break;
-		}
-
-		constants["ENABLE_WAVING_LEAVES"] = g_settings->getBool("enable_waving_leaves") ? 1 : 0;
-		constants["ENABLE_WAVING_PLANTS"] = g_settings->getBool("enable_waving_plants") ? 1 : 0;
 	}
 };
 
@@ -679,7 +609,7 @@ protected:
 	inline bool fogEnabled()
 	{
 		// Client setting only takes effect if fog distance unlimited or debug priv
-		if (sky->getFogDistance() < 0 || client->checkPrivilege("debug"))
+		if (sky->getFogDistance() < 0 || client->checkPrivilege("interact"))
 			return m_cache_enable_fog;
 		return true;
 	}
@@ -819,9 +749,11 @@ private:
 	 *       a later release.
 	 */
 	bool m_cache_doubletap_jump;
+	bool m_cache_enable_clouds;
 	bool m_cache_toggle_sneak_key;
 	bool m_cache_toggle_aux1_key;
 	bool m_cache_enable_joysticks;
+	bool m_cache_enable_particles;
 	bool m_cache_enable_fog;
 	bool m_cache_enable_noclip;
 	bool m_cache_enable_free_move;
@@ -866,11 +798,15 @@ Game::Game() :
 		&settingChangedCallback, this);
 	g_settings->registerChangedCallback("doubletap_jump",
 		&settingChangedCallback, this);
+	g_settings->registerChangedCallback("enable_clouds",
+		&settingChangedCallback, this);
 	g_settings->registerChangedCallback("toggle_sneak_key",
 		&settingChangedCallback, this);
 	g_settings->registerChangedCallback("toggle_aux1_key",
 		&settingChangedCallback, this);
 	g_settings->registerChangedCallback("enable_joysticks",
+		&settingChangedCallback, this);
+	g_settings->registerChangedCallback("enable_particles",
 		&settingChangedCallback, this);
 	g_settings->registerChangedCallback("enable_fog",
 		&settingChangedCallback, this);
@@ -902,10 +838,17 @@ Game::Game() :
 		&settingChangedCallback, this);
 	g_settings->registerChangedCallback("pause_on_lost_focus",
 		&settingChangedCallback, this);
+	g_settings->registerChangedCallback("fullbright",
+		&settingChangedCallback, this);
 
 	readSettings();
 }
 
+
+
+/****************************************************************************
+ MinetestApp Public
+ ****************************************************************************/
 
 Game::~Game()
 {
@@ -1354,13 +1297,11 @@ bool Game::createClient(const GameStartData &start_data)
 		return false;
 	}
 
-	shader_src->addShaderConstantSetter(new NodeShaderConstantSetter());
+	auto *scsf = new GameGlobalShaderConstantSetterFactory(client);
+	shader_src->addShaderConstantSetterFactory(scsf);
 
-	auto *scsf = new GameGlobalShaderUniformSetterFactory(client);
-	shader_src->addShaderUniformSetterFactory(scsf);
-
-	shader_src->addShaderUniformSetterFactory(
-		new FogShaderUniformSetterFactory());
+	shader_src->addShaderConstantSetterFactory(
+		new FogShaderConstantSetterFactory());
 
 	ShadowRenderer::preInit(shader_src);
 
@@ -1376,7 +1317,8 @@ bool Game::createClient(const GameStartData &start_data)
 
 	/* Clouds
 	 */
-	clouds = make_irr<Clouds>(smgr, shader_src, -1, myrand());
+	 if (m_cache_enable_clouds)
+	 clouds = make_irr<Clouds>(smgr, shader_src, -1, rand());
 
 	/* Skybox
 	 */
@@ -2380,8 +2322,8 @@ void Game::decreaseViewRange()
 	s16 range_new = range - 10;
 	s16 server_limit = sky->getFogDistance();
 
-	if (range_new <= 20) {
-		range_new = 20;
+	if (range_new <= 0) {
+		range_new = 0;
 		std::wstring msg = server_limit >= 0 && range_new > server_limit ?
 				fwgettext("Viewing changed to %d (the minimum), but limited to %d by game or mod", range_new, server_limit) :
 				fwgettext("Viewing changed to %d (the minimum)", range_new);
@@ -2683,12 +2625,14 @@ void Game::handleClientEvent_PlayerDamage(ClientEvent *event, CameraOrientation 
 			player->getCAO()->getProperties().hp_max : PLAYER_MAX_HP_DEFAULT;
 		f32 damage_ratio = event->player_damage.amount / hp_max;
 
-		runData.damage_flash += 95.0f + 64.f * damage_ratio;
+		/* Disable damage flash
+		 runData.damage_flash += 95.0f + 64.f * damage_ratio;
 		runData.damage_flash = MYMIN(runData.damage_flash, 127.0f);
 
-		player->hurt_tilt_timer = 1.5f;
-		player->hurt_tilt_strength =
-			rangelim(damage_ratio * 5.0f, 1.0f, 4.0f);
+		 Disable damage hurt tilt
+	 player->hurt_tilt_timer = 1.5f;
+	 player->hurt_tilt_strength = rangelim(damage_ratio * 5.0f, 1.0f, 4.0f);
+	*/
 	}
 
 	// Play damage sound
@@ -2955,6 +2899,9 @@ void Game::handleClientEvent_OverrideDayNigthRatio(ClientEvent *event,
 
 void Game::handleClientEvent_CloudParams(ClientEvent *event, CameraOrientation *cam)
 {
+	if (!clouds)
+ 		return;
+
 	clouds->setDensity(event->cloud_params.density);
 	clouds->setColorBright(video::SColor(event->cloud_params.color_bright));
 	clouds->setColorAmbient(video::SColor(event->cloud_params.color_ambient));
@@ -3096,7 +3043,8 @@ void Game::updateCameraOffset()
 			env.getLocalPlayer()->light_color);
 
 		env.updateCameraOffset(camera_offset);
-		clouds->updateCameraOffset(camera_offset);
+		if (clouds)
+ 				clouds->updateCameraOffset(camera_offset);
 	}
 }
 
@@ -3756,8 +3704,10 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 	} else {
 		runData.dig_time_complete = params.time;
 
-		client->getParticleManager()->addNodeParticle(client,
-				player, nodepos, n, features);
+		if (m_cache_enable_particles) {
+			client->getParticleManager()->addNodeParticle(client,
+					player, nodepos, n, features);
+		}
 	}
 
 	if (!runData.digging) {
@@ -3842,8 +3792,10 @@ void Game::handleDigging(const PointedThing &pointed, const v3s16 &nodepos,
 
 		client->interact(INTERACT_DIGGING_COMPLETED, pointed);
 
-		client->getParticleManager()->addDiggingParticles(client,
-			player, nodepos, n, features);
+		if (m_cache_enable_particles) {
+			client->getParticleManager()->addDiggingParticles(client,
+				player, nodepos, n, features);
+		}
 
 		// Send event to trigger sound
 		client->getEventManager()->put(new NodeDugEvent(nodepos, n));
@@ -3934,7 +3886,8 @@ void Game::updateFrame(ProfilerGraph *graph, RunStats *stats, f32 dtime,
 	/*
 		Update clouds
 	*/
-	updateClouds(dtime);
+	if (clouds)
+ 		updateClouds(dtime);
 
 	/*
 		Update particles
@@ -4157,13 +4110,13 @@ void Game::drawScene(ProfilerGraph *graph, RunStats *stats)
 
 	/*
 		Damage flash
-	*/
-	if (this->runData.damage_flash > 0.0f) {
+    if (this->runData.damage_flash > 0.0f) {
 		video::SColor color(this->runData.damage_flash, 180, 0, 0);
-		this->driver->draw2DRectangle(color,
-					core::rect<s32>(0, 0, screensize.X, screensize.Y),
+			this->driver->draw2DRectangle(color,
+				core::rect<s32>(0, 0, screensize.X, screensize.Y),
 					NULL);
-	}
+    }
+	*/
 
 	this->driver->endScene();
 
@@ -4197,13 +4150,15 @@ void Game::readSettings()
 	m_chat_log_buf.setLogLevel(chat_log_level);
 
 	m_cache_doubletap_jump               = g_settings->getBool("doubletap_jump");
+	m_cache_enable_clouds                = g_settings->getBool("enable_clouds");
 	m_cache_toggle_sneak_key             = g_settings->getBool("toggle_sneak_key");
 	m_cache_toggle_aux1_key              = g_settings->getBool("toggle_aux1_key");
 	m_cache_enable_joysticks             = g_settings->getBool("enable_joysticks");
+	m_cache_enable_particles             = g_settings->getBool("enable_particles");
 	m_cache_enable_fog                   = g_settings->getBool("enable_fog");
 	m_cache_mouse_sensitivity            = g_settings->getFloat("mouse_sensitivity", 0.001f, 10.0f);
 	m_cache_joystick_frustum_sensitivity = std::max(g_settings->getFloat("joystick_frustum_sensitivity"), 0.001f);
-	m_repeat_place_time                  = g_settings->getFloat("repeat_place_time", 0.16f, 2.0f);
+	m_repeat_place_time                  = g_settings->getFloat("repeat_place_time", 0.001f, 2.0f);
 	m_repeat_dig_time                    = g_settings->getFloat("repeat_dig_time", 0.0f, 2.0f);
 
 	m_cache_enable_noclip                = g_settings->getBool("noclip");

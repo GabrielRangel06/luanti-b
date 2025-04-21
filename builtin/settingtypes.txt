@@ -158,6 +158,18 @@ autojump (Automatic jumping) bool false
 #    On touchscreens, this only affects digging.
 safe_dig_and_place (Safe digging and placing) bool false
 
+# Enable No Render to skip rendering particles
+norender_particles (Skip rendering particles) bool true
+
+# Disabling arm movement animation when walking, climbing, falling, swimming.
+# For example: true means no arm movement in those scenarios while disabling it is the opposite
+
+disable_view_bobbing (Disable arm bobbing) bool false
+
+#    Enables left-hand mode for wielded items in the HUD.
+enable_left_hand (Enable Left-Hand Mode) bool false
+
+
 [*Keyboard and Mouse]
 
 #    Invert vertical mouse movement.

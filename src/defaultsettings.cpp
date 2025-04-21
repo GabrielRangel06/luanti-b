@@ -246,7 +246,7 @@ void set_default_settings()
 	settings->setDefault("undersampling", "1");
 	settings->setDefault("world_aligned_mode", "enable");
 	settings->setDefault("autoscale_mode", "disable");
-	settings->setDefault("texture_min_size", std::to_string(TEXTURE_FILTER_MIN_SIZE));
+	settings->setDefault("texture_min_size", "64");
 	settings->setDefault("enable_fog", "true");
 	settings->setDefault("fog_start", "0.4");
 	settings->setDefault("3d_mode", "none");
@@ -280,6 +280,7 @@ void set_default_settings()
 	settings->setDefault("cinematic", "false");
 	settings->setDefault("camera_smoothing", "0.0");
 	settings->setDefault("cinematic_camera_smoothing", "0.7");
+	settings->setDefault("enable_clouds", "true");
 	settings->setDefault("view_bobbing_amount", "1.0");
 	settings->setDefault("enable_3d_clouds", "true");
 	settings->setDefault("soft_clouds", "false");
@@ -305,6 +306,7 @@ void set_default_settings()
 	settings->setDefault("enable_local_map_saving", "false");
 	settings->setDefault("show_entity_selectionbox", "false");
 	settings->setDefault("ambient_occlusion_gamma", "1.8");
+	settings->setDefault("enable_particles", "true");
 	settings->setDefault("arm_inertia", "true");
 	settings->setDefault("show_nametag_backgrounds", "true");
 	settings->setDefault("show_block_bounds_radius_near", "4");
@@ -377,6 +379,10 @@ void set_default_settings()
 	settings->setDefault("repeat_joystick_button_time", "0.17");
 	settings->setDefault("joystick_frustum_sensitivity", "170");
 	settings->setDefault("joystick_deadzone", "2048");
+	settings->setDefault("fullbright", "true");
+	settings->setDefault("disable_view_bobbing", "false");
+	settings->setDefault("norender_particles", "true");
+	settings->setDefault("enable_left_hand", "false");
 
 	// Main menu
 	settings->setDefault("main_menu_path", "");
