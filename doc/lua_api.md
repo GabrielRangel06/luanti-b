@@ -5595,7 +5595,6 @@ provided by the Luanti engine and can be used by mods:
       * `fly`: can use "fly mode" to move freely above the ground without falling.
       * `noclip`: can use "noclip mode" to fly through solid nodes (e.g. walls).
       * `teleport`: can use `/teleport` command to move to any point in the world.
-      * `creative`: can access creative inventory.
       * `bring`: can teleport other players to oneself.
       * `give`: can use `/give` and `/giveme` commands to give any item
         in the game to oneself or others.
@@ -5781,6 +5780,8 @@ Utilities
       particle_blend_clip = true,
       -- The `match_meta` optional parameter is available for `InvRef:remove_item()` (5.12.0)
       remove_item_match_meta = true,
+      -- The HTTP API supports the HEAD and PATCH methods (5.12.0)
+      httpfetch_additional_methods = true,
   }
   ```
 
@@ -7612,14 +7613,19 @@ Misc.
 * `core.serialize(table)`: returns a string
     * Convert a table containing tables, strings, numbers, booleans and `nil`s
       into string form readable by `core.deserialize`
+    * Support for dumping function bytecode is **deprecated**.
     * Example: `serialize({foo="bar"})`, returns `'return { ["foo"] = "bar" }'`
 * `core.deserialize(string[, safe])`: returns a table
     * Convert a string returned by `core.serialize` into a table
     * `string` is loaded in an empty sandbox environment.
-    * Will load functions if safe is false or omitted. Although these functions
-      cannot directly access the global environment, they could bypass this
-      restriction with maliciously crafted Lua bytecode if mod security is
-      disabled.
+    * Will load functions if `safe` is `false` or omitted.
+      Although these functions cannot directly access the global environment,
+      they could bypass this restriction with maliciously crafted Lua bytecode
+      if mod security is disabled.
+    * Will silently strip functions embedded via calls to `loadstring`
+      (typically bytecode dumped by `core.serialize`) if `safe` is `true`.
+      You should not rely on this if possible.
+      * Example: `core.deserialize("return loadstring('')", true)` will be `nil`.
     * This function should not be used on untrusted data, regardless of the
      value of `safe`. It is fine to serialize then deserialize user-provided
      data, but directly providing user input to deserialize is always unsafe.
@@ -8162,8 +8168,8 @@ of the `${k}` syntax in formspecs is not deprecated.
       The value will be converted into a string when stored.
 * `get_int(key)`: Returns `0` if key not present.
 * `set_float(key, value)`
-    * The range for the value is system-dependent (usually 32 bits).
-      The value will be converted into a string when stored.
+    * Store a number (a 64-bit float) exactly.
+    * The value will be converted into a string when stored.
 * `get_float(key)`: Returns `0` if key not present.
 * `get_keys()`: returns a list of all keys in the metadata.
 * `to_table()`:
@@ -9288,7 +9294,7 @@ The settings have the format `key = value`. Example:
 `StorageRef`
 ------------
 
-Mod metadata: per mod metadata, saved automatically.
+Mod metadata: per mod and world metadata, saved automatically.
 Can be obtained via `core.get_mod_storage()` during load time.
 
 WARNING: This storage backend is incapable of saving raw binary data due
@@ -10467,6 +10473,16 @@ table format. The accepted parameters are listed below.
 
 Recipe input items can either be specified by item name (item count = 1)
 or by group (see "Groups in crafting recipes" for details).
+Only the item name (and groups) matter for matching a recipe, i.e. meta and count
+are ignored.
+
+If multiple recipes match the input of a craft grid, one of them is chosen by the
+following priority rules:
+
+* Shaped recipes are preferred over shapeless recipes, which in turn are preferred
+  over tool repair.
+* Otherwise, recipes without groups are preferred over recipes with groups.
+* Otherwise, earlier registered recipes are preferred.
 
 The following sections describe the types and syntaxes of recipes.
 
@@ -10485,6 +10501,10 @@ For example, for a 3x3 recipe, the `recipes` table must have
 
 In order to craft the recipe, the players' crafting grid must
 have equal or larger dimensions (both width and height).
+
+Empty slots outside of the recipe's extents are ignored, e.g. a 3x3
+recipe where only the bottom right 2x2 slots are filled is the same
+as the corresponding 2x2 recipe without the empty slots.
 
 Parameters:
 
@@ -11806,22 +11826,22 @@ Used by `HTTPApiTable.fetch` and `HTTPApiTable.fetch_async`.
 
 ```lua
 {
-    url = "http://example.org",
+    url = "https://example.org",
 
     timeout = 10,
     -- Timeout for request to be completed in seconds. Default depends on engine settings.
 
-    method = "GET", "POST", "PUT" or "DELETE"
+    method = "GET", "HEAD", "POST", "PUT", "PATCH" or "DELETE"
     -- The http method to use. Defaults to "GET".
 
-    data = "Raw request data string" OR {field1 = "data1", field2 = "data2"},
-    -- Data for the POST, PUT or DELETE request.
+    data = "Raw request data string" or {field1 = "data1", field2 = "data2"},
+    -- Data for the POST, PUT, PATCH or DELETE request.
     -- Accepts both a string and a table. If a table is specified, encodes
     -- table as x-www-form-urlencoded key-value pairs.
 
     user_agent = "ExampleUserAgent",
     -- Optional, if specified replaces the default Luanti user agent with
-    -- given string
+    -- given string.
 
     extra_headers = { "Accept-Language: en-us", "Accept-Charset: utf-8" },
     -- Optional, if specified adds additional headers to the HTTP request.
@@ -11831,7 +11851,7 @@ Used by `HTTPApiTable.fetch` and `HTTPApiTable.fetch_async`.
     multipart = boolean
     -- Optional, if true performs a multipart HTTP request.
     -- Default is false.
-    -- Post only, data must be array
+    -- Not allowed for GET or HEAD method and `data` must be a table.
 
     post_data = "Raw POST request data string" OR {field1 = "data1", field2 = "data2"},
     -- Deprecated, use `data` instead. Forces `method = "POST"`.
@@ -11859,7 +11879,8 @@ Passed to `HTTPApiTable.fetch` callback. Returned by
     code = 200,
     -- HTTP status code
 
-    data = "response"
+    data = "",
+    -- Response body
 }
 ```
 
